@@ -38,7 +38,7 @@ def get(key: str):
     return load().get(key, DEFAULTS.get(key))
 
 
-def set(key: str, value) -> None:
+def set_value(key: str, value) -> None:
     cfg = load()
     cfg[key] = value
     save(cfg)
