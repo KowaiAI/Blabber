@@ -135,12 +135,7 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.LISTENING:
                 return
-            self._pause_since = time.time()
-            self._state = State.PAUSED
-        if self._widget:
-            self._widget.set_state(State.PAUSED)
-        if self._tray:
-            self._tray.set_state(State.PAUSED)
+        self._set_state_with_fields(State.PAUSED, pause_since=time.time())
 
     def _cmd_stop(self) -> None:
         with self._state_lock:
@@ -148,11 +143,9 @@ class BlabberApp:
             self._listen_session_id += 1
             if current == State.OFF:
                 return
-            self._pause_since = 0.0
-            self._last_speech_time = 0.0
         self._capture.stop()
         self._drain_transcribe_queue()
-        self._set_state(State.OFF)
+        self._set_state_with_fields(State.OFF, pause_since=0.0, last_speech_time=0.0)
 
     def _cmd_minimize(self) -> None:
         GLib.idle_add(self._do_minimize)
@@ -211,8 +204,20 @@ class BlabberApp:
         pass
 
     def _set_state(self, state: str) -> None:
+        self._set_state_with_fields(state)
+
+    def _set_state_with_fields(
+        self,
+        state: str,
+        pause_since: float | None = None,
+        last_speech_time: float | None = None,
+    ) -> None:
         with self._state_lock:
             self._state = state
+            if pause_since is not None:
+                self._pause_since = pause_since
+            if last_speech_time is not None:
+                self._last_speech_time = last_speech_time
         if self._widget:
             self._widget.set_state(state)
         if self._tray:
@@ -255,12 +260,7 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.PAUSED:
                 return False
-            self._pause_since = 0.0
-            self._state = State.IDLE
-        if self._widget:
-            self._widget.set_state(State.IDLE)
-        if self._tray:
-            self._tray.set_state(State.IDLE)
+        self._set_state_with_fields(State.IDLE, pause_since=0.0)
         return False
 
     def _drain_transcribe_queue(self) -> None:
