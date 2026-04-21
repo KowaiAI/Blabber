@@ -1,3 +1,4 @@
+import queue
 import threading
 import time
 import gi
@@ -41,6 +42,8 @@ class BlabberApp:
 
         self._pause_since: float = 0.0
         self._timeout_thread: threading.Thread | None = None
+        self._transcribe_thread: threading.Thread | None = None
+        self._transcribe_queue: queue.Queue = queue.Queue()
         self._widget_visible = False
 
     def run(self) -> None:
@@ -59,6 +62,7 @@ class BlabberApp:
         self._focus_monitor.start()
         self._hotkey.start()
         self._start_timeout_watcher()
+        self._start_transcribe_worker()
 
         self._widget.show_all()
         self._widget_visible = True
@@ -113,10 +117,25 @@ class BlabberApp:
                     threading.Thread(target=self._start_listening, daemon=True).start()
 
     def _on_speech_chunk(self, audio_bytes: bytes) -> None:
-        text = self._stt.transcribe(audio_bytes)
-        if text:
-            display_server = config.get("display_server") or "auto"
-            type_text(text + " ", display_server=display_server)
+        self._transcribe_queue.put(audio_bytes)
+
+    def _start_transcribe_worker(self) -> None:
+        if self._transcribe_thread and self._transcribe_thread.is_alive():
+            return
+        self._transcribe_thread = threading.Thread(
+            target=self._transcribe_loop, daemon=True
+        )
+        self._transcribe_thread.start()
+
+    def _transcribe_loop(self) -> None:
+        while True:
+            audio_bytes = self._transcribe_queue.get()
+            if audio_bytes is None:
+                break
+            text = self._stt.transcribe(audio_bytes)
+            if text:
+                display_server = config.get("display_server") or "auto"
+                type_text(text + " ", display_server=display_server)
 
     def _handle_silence(self) -> None:
         pass
@@ -188,6 +207,10 @@ class BlabberApp:
     def _quit(self) -> None:
         self._save_position()
         self._capture.stop()
+        self._transcribe_queue.put(None)
+        if self._transcribe_thread:
+            self._transcribe_thread.join(timeout=2)
+            self._transcribe_thread = None
         self._focus_monitor.stop()
         self._hotkey.stop()
         GLib.idle_add(Gtk.main_quit)
