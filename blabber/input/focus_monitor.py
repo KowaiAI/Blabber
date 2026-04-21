@@ -14,6 +14,7 @@ class FocusMonitor:
     def __init__(self, on_text_field_focused: Callable[[], None]):
         self._callback = on_text_field_focused
         self._atspi_listener = None
+        self._atspi_thread: threading.Thread | None = None
         self._running = False
         self._lock = threading.Lock()
 
@@ -37,7 +38,15 @@ class FocusMonitor:
                 )
             except Exception:
                 pass
+            try:
+                pyatspi.Registry.stop()
+            except Exception:
+                pass
             self._atspi_listener = None
+
+        if self._atspi_thread and self._atspi_thread.is_alive():
+            self._atspi_thread.join(timeout=2)
+        self._atspi_thread = None
 
     def _start_atspi(self) -> None:
         try:
@@ -45,8 +54,8 @@ class FocusMonitor:
                 self._on_atspi_event, "focus:"
             )
             self._atspi_listener = self._on_atspi_event
-            t = threading.Thread(target=self._atspi_loop, daemon=True)
-            t.start()
+            self._atspi_thread = threading.Thread(target=self._atspi_loop, daemon=True)
+            self._atspi_thread.start()
         except Exception:
             pass
 

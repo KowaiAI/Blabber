@@ -87,6 +87,8 @@ class SettingsDialog(Gtk.Dialog):
     def _save(self) -> None:
         cfg = config.load()
         new_model = self._model_combo.get_active_id()
+        if not new_model:
+            new_model = "small"
         model_changed = new_model != cfg.get("model_size")
 
         cfg["model_size"] = new_model
