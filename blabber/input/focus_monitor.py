@@ -7,19 +7,12 @@ try:
 except ImportError:
     HAS_ATSPI = False
 
-try:
-    from pynput import mouse
-    HAS_PYNPUT = True
-except Exception:
-    HAS_PYNPUT = False
-
 
 class FocusMonitor:
-    """Watches for mouse clicks and AT-SPI focus events to detect text field selection."""
+    """Watches AT-SPI focus events to detect when a text field is focused."""
 
     def __init__(self, on_text_field_focused: Callable[[], None]):
         self._callback = on_text_field_focused
-        self._mouse_listener = None
         self._atspi_listener = None
         self._running = False
         self._lock = threading.Lock()
@@ -33,19 +26,9 @@ class FocusMonitor:
         if HAS_ATSPI:
             self._start_atspi()
 
-        if HAS_ATSPI and HAS_PYNPUT:
-            self._start_mouse_listener()
-
     def stop(self) -> None:
         with self._lock:
             self._running = False
-
-        if self._mouse_listener:
-            try:
-                self._mouse_listener.stop()
-            except Exception:
-                pass
-            self._mouse_listener = None
 
         if HAS_ATSPI and self._atspi_listener:
             try:
@@ -89,14 +72,3 @@ class FocusMonitor:
                 self._callback()
         except Exception:
             pass
-
-    def _start_mouse_listener(self) -> None:
-        try:
-            self._mouse_listener = mouse.Listener(on_click=self._on_click)
-            self._mouse_listener.start()
-        except Exception:
-            pass
-
-    def _on_click(self, x, y, button, pressed) -> None:
-        if pressed and self._running:
-            self._callback()

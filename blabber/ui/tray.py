@@ -18,6 +18,8 @@ from typing import Callable
 
 ICON_MAP = {
     "off":       "audio-input-microphone-muted-symbolic",
+    "loading":   "audio-input-microphone-muted-symbolic",
+    "ready":     "audio-input-microphone-symbolic",
     "listening": "audio-input-microphone-symbolic",
     "paused":    "audio-input-microphone-symbolic",
     "idle":      "audio-input-microphone-muted-symbolic",
@@ -25,6 +27,8 @@ ICON_MAP = {
 
 LABEL_MAP = {
     "off":       "Blabber — Off",
+    "loading":   "Blabber — Loading",
+    "ready":     "Blabber — Ready",
     "listening": "Blabber — Listening",
     "paused":    "Blabber — Paused",
     "idle":      "Blabber — Idle",
