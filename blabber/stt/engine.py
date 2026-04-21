@@ -36,17 +36,17 @@ class STTEngine:
 
     def transcribe(self, audio_bytes: bytes) -> str:
         with self._lock:
-            if self._model is None:
+            model = self._model
+            if model is None:
                 return ""
 
         audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
         audio_array /= 32768.0
 
-        with self._lock:
-            segments, _ = self._model.transcribe(
-                audio_array,
-                language=None,
-                beam_size=5,
-                vad_filter=True,
-            )
-            return "".join(seg.text for seg in segments).strip()
+        segments, _ = model.transcribe(
+            audio_array,
+            language=None,
+            beam_size=5,
+            vad_filter=True,
+        )
+        return "".join(seg.text for seg in segments).strip()
