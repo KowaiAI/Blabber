@@ -54,12 +54,14 @@ class FocusMonitor:
                 )
             except Exception:
                 pass
+            self._atspi_listener = None
 
     def _start_atspi(self) -> None:
         try:
             pyatspi.Registry.registerEventListener(
                 self._on_atspi_event, "focus:"
             )
+            self._atspi_listener = self._on_atspi_event
             t = threading.Thread(target=self._atspi_loop, daemon=True)
             t.start()
         except Exception:
