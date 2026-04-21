@@ -131,9 +131,16 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.LISTENING:
                 return
-            self._pause_since = time.time()
         self._capture.stop()
-        self._set_state(State.PAUSED)
+        with self._state_lock:
+            if self._state != State.LISTENING:
+                return
+            self._pause_since = time.time()
+            self._state = State.PAUSED
+        if self._widget:
+            self._widget.set_state(State.PAUSED)
+        if self._tray:
+            self._tray.set_state(State.PAUSED)
 
     def _cmd_stop(self) -> None:
         with self._state_lock:
@@ -249,7 +256,11 @@ class BlabberApp:
             if self._state != State.PAUSED:
                 return False
             self._pause_since = 0.0
-        self._set_state(State.IDLE)
+            self._state = State.IDLE
+        if self._widget:
+            self._widget.set_state(State.IDLE)
+        if self._tray:
+            self._tray.set_state(State.IDLE)
         return False
 
     def _drain_transcribe_queue(self) -> None:
