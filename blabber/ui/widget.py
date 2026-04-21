@@ -126,7 +126,8 @@ class BlabberWidget(Gtk.Window):
 
     def _single_click_action(self) -> bool:
         import time
-        if time.time() - self._last_plus_time >= 0.4:
+        if self._last_plus_time > 0 and time.time() - self._last_plus_time >= 0.4:
+            self._last_plus_time = 0.0
             self._on_start()
         return False
 

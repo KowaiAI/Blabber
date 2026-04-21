@@ -45,10 +45,10 @@ class HotkeyListener:
             k in self._current_keys
             for k in (keyboard.Key.shift, keyboard.Key.shift_r, keyboard.Key.shift_l)
         )
-        try:
-            b_pressed = keyboard.KeyCode.from_char("b") in self._current_keys
-        except Exception:
-            b_pressed = False
+        b_pressed = any(
+            getattr(k, "char", "").lower() == "b"
+            for k in self._current_keys
+        )
 
         if shift_pressed and b_pressed:
             self._current_keys.clear()
