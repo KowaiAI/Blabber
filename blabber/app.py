@@ -101,7 +101,7 @@ class BlabberApp:
             self._pause_since = time.time()
             self._set_state(State.PAUSED)
         elif current in (State.PAUSED, State.IDLE):
-            self._start_listening()
+            self._cmd_start()
 
     def _on_focus(self) -> None:
         cfg = config.load()

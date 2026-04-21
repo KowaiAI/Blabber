@@ -33,7 +33,7 @@ class FocusMonitor:
         if HAS_ATSPI:
             self._start_atspi()
 
-        if HAS_PYNPUT:
+        if HAS_ATSPI and HAS_PYNPUT:
             self._start_mouse_listener()
 
     def stop(self) -> None:
