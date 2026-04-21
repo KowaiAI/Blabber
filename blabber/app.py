@@ -148,7 +148,6 @@ class BlabberApp:
                     type_text(text + " ", display_server=display_server)
             except Exception:
                 logger.exception("Failed to transcribe speech chunk")
-                continue
 
     def _handle_silence(self) -> None:
         pass
@@ -225,6 +224,8 @@ class BlabberApp:
             self._transcribe_thread.join(
                 timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS
             )
+            if self._transcribe_thread.is_alive():
+                logger.warning("Transcribe worker thread did not stop before timeout")
             self._transcribe_thread = None
         self._focus_monitor.stop()
         self._hotkey.stop()
