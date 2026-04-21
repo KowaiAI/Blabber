@@ -62,19 +62,19 @@ class SettingsDialog(Gtk.Dialog):
         timeout_label.set_halign(Gtk.Align.START)
         box.add(timeout_label)
 
+        pause_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        pause_box.add(Gtk.Label(label="Auto-pause after silence (seconds):"))
+        self._pause_spin = Gtk.SpinButton.new_with_range(5, 300, 5)
+        self._pause_spin.set_value(self._cfg.get("auto_pause_seconds", 30))
+        pause_box.pack_end(self._pause_spin, False, False, 0)
+        box.add(pause_box)
+
         idle_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        idle_box.add(Gtk.Label(label="Idle after (minutes):"))
-        self._idle_spin = Gtk.SpinButton.new_with_range(1, 60, 1)
-        self._idle_spin.set_value(self._cfg.get("idle_timeout_seconds", 360) / 60)
+        idle_box.add(Gtk.Label(label="Idle after paused (seconds):"))
+        self._idle_spin = Gtk.SpinButton.new_with_range(10, 600, 10)
+        self._idle_spin.set_value(self._cfg.get("idle_timeout_seconds", 60))
         idle_box.pack_end(self._idle_spin, False, False, 0)
         box.add(idle_box)
-
-        off_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        off_box.add(Gtk.Label(label="Off after (minutes):"))
-        self._off_spin = Gtk.SpinButton.new_with_range(1, 120, 1)
-        self._off_spin.set_value(self._cfg.get("off_timeout_seconds", 1200) / 60)
-        off_box.pack_end(self._off_spin, False, False, 0)
-        box.add(off_box)
 
         self.show_all()
 
@@ -87,12 +87,14 @@ class SettingsDialog(Gtk.Dialog):
     def _save(self) -> None:
         cfg = config.load()
         new_model = self._model_combo.get_active_id()
+        if not new_model:
+            new_model = "small"
         model_changed = new_model != cfg.get("model_size")
 
         cfg["model_size"] = new_model
         cfg["auto_start_on_click"] = self._auto_start.get_active()
-        cfg["idle_timeout_seconds"] = int(self._idle_spin.get_value() * 60)
-        cfg["off_timeout_seconds"] = int(self._off_spin.get_value() * 60)
+        cfg["auto_pause_seconds"] = int(self._pause_spin.get_value())
+        cfg["idle_timeout_seconds"] = int(self._idle_spin.get_value())
         config.save(cfg)
 
         if model_changed:

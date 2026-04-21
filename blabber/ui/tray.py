@@ -12,12 +12,14 @@ except (ValueError, ImportError):
     except (ValueError, ImportError):
         HAS_INDICATOR = False
 
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 from typing import Callable
 
 
 ICON_MAP = {
     "off":       "audio-input-microphone-muted-symbolic",
+    "loading":   "audio-input-microphone-muted-symbolic",
+    "ready":     "audio-input-microphone-symbolic",
     "listening": "audio-input-microphone-symbolic",
     "paused":    "audio-input-microphone-symbolic",
     "idle":      "audio-input-microphone-muted-symbolic",
@@ -25,6 +27,8 @@ ICON_MAP = {
 
 LABEL_MAP = {
     "off":       "Blabber — Off",
+    "loading":   "Blabber — Loading",
+    "ready":     "Blabber — Ready",
     "listening": "Blabber — Listening",
     "paused":    "Blabber — Paused",
     "idle":      "Blabber — Idle",
@@ -66,7 +70,8 @@ class TrayIcon:
     def set_state(self, state: str) -> None:
         self._state = state
         if self._indicator:
-            self._indicator.set_icon_full(
+            GLib.idle_add(
+                self._indicator.set_icon_full,
                 ICON_MAP.get(state, ICON_MAP["off"]),
                 LABEL_MAP.get(state, "Blabber"),
             )

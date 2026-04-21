@@ -29,15 +29,28 @@ def _inject_wayland(text: str) -> None:
 
 
 def _inject_via_clipboard(text: str) -> None:
-    """Clipboard fallback: copy text then paste with Ctrl+V."""
+    """Clipboard fallback: copy text then paste with Ctrl+V.
+
+    Uses Wayland-native tools (wl-copy / wtype) when available, then falls
+    back to the X11 equivalents (xclip / xdotool) for XWayland or X11 sessions.
+    """
     try:
-        import subprocess
-        proc = subprocess.Popen(
-            ["xclip", "-selection", "clipboard"],
-            stdin=subprocess.PIPE,
-        )
-        proc.communicate(input=text.encode())
-        subprocess.run(["xdotool", "key", "ctrl+v"], check=False)
+        if shutil.which("wl-copy") and shutil.which("wtype"):
+            # Wayland-native path
+            proc = subprocess.Popen(
+                ["wl-copy"],
+                stdin=subprocess.PIPE,
+            )
+            proc.communicate(input=text.encode())
+            subprocess.run(["wtype", "-M", "ctrl", "v", "-m", "ctrl"], check=False)
+        else:
+            # X11 / XWayland path
+            proc = subprocess.Popen(
+                ["xclip", "-selection", "clipboard"],
+                stdin=subprocess.PIPE,
+            )
+            proc.communicate(input=text.encode())
+            subprocess.run(["xdotool", "key", "ctrl+v"], check=False)
     except Exception:
         pass
 

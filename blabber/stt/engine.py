@@ -35,6 +35,8 @@ class STTEngine:
         return self._model is not None
 
     def transcribe(self, audio_bytes: bytes) -> str:
+        if not audio_bytes:
+            return ""
         with self._lock:
             model = self._model
             if model is None:
