@@ -251,9 +251,8 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.LISTENING:
                 return False
-            self._pause_since = time.time()
         self._capture.stop()
-        self._set_state(State.PAUSED)
+        self._set_state_with_fields(State.PAUSED, pause_since=time.time())
         return False
 
     def _go_idle(self) -> bool:
@@ -310,7 +309,7 @@ class BlabberApp:
             self._transcribe_queue.put_nowait(TRANSCRIBE_WORKER_STOP)
         except queue.Full:
             logger.warning(
-                "Transcribe queue is full during shutdown; retrying after drain"
+                "Transcribe queue was full during shutdown; drained and retrying"
             )
             self._drain_transcribe_queue()
             try:
