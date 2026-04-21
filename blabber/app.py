@@ -305,7 +305,7 @@ class BlabberApp:
             try:
                 self._transcribe_queue.put_nowait(TRANSCRIBE_WORKER_STOP)
             except queue.Full:
-                logger.warning("Failed to enqueue transcribe stop sentinel")
+                logger.error("Failed to enqueue transcribe stop sentinel")
         if self._transcribe_thread:
             self._transcribe_thread.join(
                 timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS
