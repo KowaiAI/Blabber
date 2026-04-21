@@ -182,8 +182,8 @@ class BlabberApp:
     def _save_position(self) -> None:
         if self._widget:
             x, y = self._widget.get_position_xy()
-            config.set("widget_x", x)
-            config.set("widget_y", y)
+            config.set_value("widget_x", x)
+            config.set_value("widget_y", y)
 
     def _quit(self) -> None:
         self._save_position()
