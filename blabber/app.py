@@ -172,7 +172,7 @@ class BlabberApp:
             try:
                 text = self._stt.transcribe(audio_bytes)
                 if text:
-                    display_server = config.get("display_server") or "auto"
+                    display_server = self._cfg.get("display_server") or "auto"
                     type_text(text + " ", display_server=display_server)
             except Exception:
                 logger.exception("Failed to transcribe speech chunk")
