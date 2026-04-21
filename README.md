@@ -82,6 +82,12 @@ On Ubuntu 23.04+ or any system with an externally-managed Python environment:
 
 ```bash
 pip install --break-system-packages -r requirements.txt
+
+#Or you can run:
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
 ---
