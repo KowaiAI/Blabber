@@ -18,6 +18,7 @@ from blabber.ui.settings_dialog import SettingsDialog
 
 TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS = 2
 TRANSCRIBE_QUEUE_MAX_SIZE = 16
+TRANSCRIBE_WORKER_STOP = object()
 logger = logging.getLogger(__name__)
 
 
@@ -138,7 +139,7 @@ class BlabberApp:
     def _transcribe_loop(self) -> None:
         while True:
             audio_bytes = self._transcribe_queue.get()
-            if audio_bytes is None:
+            if audio_bytes is TRANSCRIBE_WORKER_STOP:
                 break
             try:
                 text = self._stt.transcribe(audio_bytes)
@@ -219,7 +220,7 @@ class BlabberApp:
     def _quit(self) -> None:
         self._save_position()
         self._capture.stop()
-        self._transcribe_queue.put(None)
+        self._transcribe_queue.put(TRANSCRIBE_WORKER_STOP)
         if self._transcribe_thread:
             self._transcribe_thread.join(
                 timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS
