@@ -68,8 +68,8 @@ cat > "$CONFIG_DIR/config.json" <<EOF
 {
   "model_size": "${MODEL_SIZE}",
   "auto_start_on_click": false,
-  "idle_timeout_seconds": 360,
-  "off_timeout_seconds": 1200,
+  "auto_pause_seconds": 30,
+  "idle_timeout_seconds": 60,
   "hotkey": "<shift>+b",
   "widget_x": 10,
   "widget_y": 10,
@@ -126,6 +126,8 @@ echo ""
 echo -e "  Run:  ${CYAN}blabber${NC}"
 echo -e "  Or:   ${CYAN}python3.12 ${BLABBER_DIR}/main.py${NC}"
 echo ""
-echo -e "  ${YELLOW}Hotkey:${NC} Shift+B to show/hide the widget"
-echo -e "  ${YELLOW}Start:${NC}  Click a text field, then press +"
+echo -e "  ${YELLOW}Hotkey:${NC}  Shift+B to show/hide the widget"
+echo -e "  ${YELLOW}Start:${NC}   Press ▶ on the widget to begin listening"
+echo -e "  ${YELLOW}Pause:${NC}   Press ⏸ — auto-pauses after 30 s silence"
+echo -e "  ${YELLOW}Idle:${NC}    Widget goes idle after 60 s paused; press ▶ to resume"
 echo ""
