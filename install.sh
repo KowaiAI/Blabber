@@ -4,6 +4,12 @@ set -eo pipefail
 BLABBER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.config/blabber"
 
+# Parse flags
+NO_PROMPT=false
+for arg in "$@"; do
+    [[ "$arg" == "--no-prompt" ]] && NO_PROMPT=true
+done
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -214,6 +220,31 @@ cat > "$CONFIG_DIR/config.json" <<EOF
   "display_server": "auto"
 }
 EOF
+
+# ── Hugging Face token (optional — speeds up downloads, avoids rate limits) ───
+if [[ -z "${HF_TOKEN:-}" && -z "${HUGGINGFACE_HUB_TOKEN:-}" ]]; then
+    if [[ "$NO_PROMPT" == "true" || "${CI:-}" == "1" || ! -t 0 ]]; then
+        echo -e "  ${YELLOW}⚠${NC}  No Hugging Face token set — downloading unauthenticated (may be slower)"
+    else
+        echo ""
+        echo -e "  ${BOLD}Hugging Face token (optional)${NC}"
+        echo -e "  A token speeds up downloads and avoids rate limits."
+        echo -e "  Create one at ${CYAN}https://huggingface.co/settings/tokens${NC} (read-only scope is enough)."
+        echo -e "  Press Enter to skip and download without a token."
+        echo ""
+        read -rsp "  Paste token (hidden): " HF_INPUT
+        echo ""
+        if [[ -n "$HF_INPUT" ]]; then
+            export HF_TOKEN="$HF_INPUT"
+            export HUGGINGFACE_HUB_TOKEN="$HF_INPUT"
+            echo -e "  ${GREEN}✓${NC} Token set — authenticated download"
+        else
+            echo -e "  ${YELLOW}⚠${NC}  No token entered — downloading unauthenticated"
+        fi
+    fi
+else
+    echo -e "  ${GREEN}✓${NC} Hugging Face token already set in environment"
+fi
 
 # Pre-download the selected model
 echo ""
