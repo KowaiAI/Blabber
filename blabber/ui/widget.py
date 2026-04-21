@@ -3,6 +3,12 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 from typing import Callable
 
+DOUBLE_CLICK_THRESHOLD_SECONDS = 0.4
+SINGLE_CLICK_BUFFER_SECONDS = 0.05
+SINGLE_CLICK_DELAY_MS = int(
+    (DOUBLE_CLICK_THRESHOLD_SECONDS + SINGLE_CLICK_BUFFER_SECONDS) * 1000
+)
+
 
 class BlabberWidget(Gtk.Window):
     """Floating control panel — top-left by default, draggable."""
@@ -21,6 +27,7 @@ class BlabberWidget(Gtk.Window):
         self._on_settings = on_settings
         self._drag_offset = (0, 0)
         self._last_plus_time = 0.0
+        self._single_click_timer_id = 0
 
         self._build_ui()
         self.set_keep_above(True)
@@ -117,17 +124,22 @@ class BlabberWidget(Gtk.Window):
     def _handle_plus_click(self, _) -> None:
         import time
         now = time.time()
-        if now - self._last_plus_time < 0.4:
+        if now - self._last_plus_time < DOUBLE_CLICK_THRESHOLD_SECONDS:
+            if self._single_click_timer_id:
+                GLib.source_remove(self._single_click_timer_id)
+                self._single_click_timer_id = 0
             self._on_pause()
             self._last_plus_time = 0.0
         else:
             self._last_plus_time = now
-            GLib.timeout_add(450, self._single_click_action)
+            self._single_click_timer_id = GLib.timeout_add(
+                SINGLE_CLICK_DELAY_MS, self._single_click_action
+            )
 
     def _single_click_action(self) -> bool:
         import time
-        if self._last_plus_time > 0 and time.time() - self._last_plus_time >= 0.4:
-            self._last_plus_time = 0.0
+        self._single_click_timer_id = 0
+        if time.time() - self._last_plus_time >= DOUBLE_CLICK_THRESHOLD_SECONDS:
             self._on_start()
         return False
 
