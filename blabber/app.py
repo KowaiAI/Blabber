@@ -54,6 +54,7 @@ class BlabberApp:
         self._timeout_thread: threading.Thread | None = None
         self._transcribe_thread: threading.Thread | None = None
         self._transcribe_queue: queue.Queue = queue.Queue(maxsize=TRANSCRIBE_QUEUE_MAX_SIZE)
+        self._transcribe_stop = threading.Event()
         self._widget_visible = False
 
     def run(self) -> None:
@@ -169,9 +170,11 @@ class BlabberApp:
             audio_bytes = self._transcribe_queue.get()
             if audio_bytes is TRANSCRIBE_WORKER_STOP:
                 break
+            if self._transcribe_stop.is_set():
+                continue
             try:
                 text = self._stt.transcribe(audio_bytes)
-                if text:
+                if text and not self._transcribe_stop.is_set():
                     display_server = self._cfg.get("display_server") or "auto"
                     type_text(text + " ", display_server=display_server)
             except Exception:
@@ -263,7 +266,17 @@ class BlabberApp:
     def _quit(self) -> None:
         self._save_position()
         self._capture.stop()
-        self._transcribe_queue.put(TRANSCRIBE_WORKER_STOP)
+        self._transcribe_stop.set()
+        # Drain any queued chunks so the sentinel reaches the worker immediately
+        while not self._transcribe_queue.empty():
+            try:
+                self._transcribe_queue.get_nowait()
+            except queue.Empty:
+                break
+        try:
+            self._transcribe_queue.put_nowait(TRANSCRIBE_WORKER_STOP)
+        except queue.Full:
+            logger.warning("Could not enqueue transcribe stop sentinel (queue full)")
         if self._transcribe_thread:
             self._transcribe_thread.join(
                 timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 
 BLABBER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.config/blabber"
@@ -22,22 +22,35 @@ echo ""
 echo -e "${BOLD}[1/4] Installing system dependencies...${NC}"
 sudo apt-get update -qq
 sudo apt-get install -y --fix-missing \
-    python3.12 \
+    python3 \
+    python3-pip \
     xdotool \
-    ydotool \
     portaudio19-dev \
     gir1.2-ayatanaappindicator3-0.1 \
     gir1.2-gtk-3.0 \
     python3-pyatspi \
     libgirepository1.0-dev \
     python3-dev \
-    xclip 2>&1 | grep -E "(Setting up|already)" | sed 's/^/  /'
-echo -e "${GREEN}  ✓ System packages ready${NC}"
+    xclip 2>&1 | grep -E "(Setting up|already installed)" | sed 's/^/  /' || true
+
+# ydotool is optional (Wayland injection falls back to wtype or clipboard if absent)
+if apt-cache show ydotool &>/dev/null; then
+    sudo apt-get install -y ydotool 2>&1 | grep -E "(Setting up|already installed)" | sed 's/^/  /' || true
+fi
+
+# Prefer python3.12 if available on this system
+if command -v python3.12 &>/dev/null; then
+    PYTHON=python3.12
+else
+    PYTHON=python3
+fi
+
+echo -e "${GREEN}  ✓ System packages ready (using ${PYTHON})${NC}"
 
 # ── Python packages ───────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}[2/4] Installing Python packages...${NC}"
-python3.12 -m pip install --break-system-packages --quiet \
+"$PYTHON" -m pip install --break-system-packages --quiet \
     faster-whisper \
     sounddevice \
     webrtcvad-wheels \
@@ -80,11 +93,18 @@ EOF
 # ── Pre-download model ────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}  Downloading ${MODEL_SIZE} model (this may take a few minutes)...${NC}"
-python3.12 - <<PYEOF
+
+# Map user-chosen size to the actual faster-whisper model name (mirrors stt/engine.py)
+case "$MODEL_SIZE" in
+    medium) WHISPER_MODEL="medium"   ;;
+    large)  WHISPER_MODEL="large-v3" ;;
+    *)      WHISPER_MODEL="small"    ;;
+esac
+
+"$PYTHON" - <<PYEOF
 from faster_whisper import WhisperModel
-sizes = {"small": "small", "medium": "medium", "large": "large-v3"}
-print(f"  Downloading {sizes['${MODEL_SIZE}']}...")
-m = WhisperModel(sizes["${MODEL_SIZE}"], device="cpu", compute_type="int8")
+print("  Downloading ${WHISPER_MODEL}...")
+WhisperModel("${WHISPER_MODEL}", device="cpu", compute_type="int8")
 print("  Model ready.")
 PYEOF
 echo -e "${GREEN}  ✓ Model downloaded and cached${NC}"
@@ -97,7 +117,7 @@ LAUNCHER="$HOME/.local/bin/blabber"
 mkdir -p "$HOME/.local/bin"
 cat > "$LAUNCHER" <<EOF
 #!/usr/bin/env bash
-exec python3.12 "${BLABBER_DIR}/main.py" "\$@"
+exec ${PYTHON} "${BLABBER_DIR}/main.py" "\$@"
 EOF
 chmod +x "$LAUNCHER"
 
@@ -124,7 +144,7 @@ echo -e "${BOLD}${GREEN}║     Blabber is ready to use!     ║${NC}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════╝${NC}"
 echo ""
 echo -e "  Run:  ${CYAN}blabber${NC}"
-echo -e "  Or:   ${CYAN}python3.12 ${BLABBER_DIR}/main.py${NC}"
+echo -e "  Or:   ${CYAN}${PYTHON} ${BLABBER_DIR}/main.py${NC}"
 echo ""
 echo -e "  ${YELLOW}Hotkey:${NC}  Shift+B to show/hide the widget"
 echo -e "  ${YELLOW}Start:${NC}   Press ▶ on the widget to begin listening"
