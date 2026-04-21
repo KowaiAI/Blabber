@@ -89,6 +89,8 @@ class BlabberApp:
         GLib.idle_add(self._do_toggle_widget)
 
     def _do_toggle_widget(self) -> bool:
+        if not self._widget:
+            return False
         if self._widget_visible:
             self._widget.hide()
             self._widget_visible = False
@@ -108,9 +110,14 @@ class BlabberApp:
         ).start()
 
     def _start_listening(self, session_id: int) -> None:
-        if not self._stt.is_loaded:
-            self._set_state(State.LOADING)
-            self._stt.load()
+        try:
+            if not self._stt.is_loaded:
+                self._set_state(State.LOADING)
+                self._stt.load()
+        except Exception:
+            logger.exception("Failed to load speech model")
+            self._set_state(State.OFF)
+            return
 
         with self._state_lock:
             if session_id != self._listen_session_id:
@@ -121,7 +128,12 @@ class BlabberApp:
             if session_id != self._listen_session_id or self._state != State.READY:
                 return
 
-        self._capture.start()
+        try:
+            self._capture.start()
+        except Exception:
+            logger.exception("Failed to start audio capture")
+            self._set_state(State.OFF)
+            return
         with self._state_lock:
             self._last_speech_time = time.time()
             self._pause_since = 0.0
@@ -145,6 +157,7 @@ class BlabberApp:
                 return
         self._capture.stop()
         self._drain_transcribe_queue()
+        self._stt.unload()
         self._set_state_with_fields(State.OFF, pause_since=0.0, last_speech_time=0.0)
 
     def _cmd_minimize(self) -> None:
@@ -260,6 +273,7 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.PAUSED:
                 return False
+        self._stt.unload()
         self._set_state_with_fields(State.IDLE, pause_since=0.0)
         return False
 
