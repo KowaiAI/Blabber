@@ -55,6 +55,7 @@ class BlabberApp:
         self._transcribe_thread: threading.Thread | None = None
         self._transcribe_queue: queue.Queue = queue.Queue(maxsize=TRANSCRIBE_QUEUE_MAX_SIZE)
         self._transcribe_stop = threading.Event()
+        self._listen_session_id = 0
         self._widget_visible = False
 
     def run(self) -> None:
@@ -100,15 +101,25 @@ class BlabberApp:
         with self._state_lock:
             if self._state in (State.LISTENING, State.LOADING, State.READY):
                 return
-        threading.Thread(target=self._start_listening, daemon=True).start()
+            self._listen_session_id += 1
+            session_id = self._listen_session_id
+        threading.Thread(
+            target=self._start_listening, args=(session_id,), daemon=True
+        ).start()
 
-    def _start_listening(self) -> None:
+    def _start_listening(self, session_id: int) -> None:
         if not self._stt.is_loaded:
             self._set_state(State.LOADING)
             self._stt.load()
 
+        with self._state_lock:
+            if session_id != self._listen_session_id:
+                return
         self._set_state(State.READY)
         time.sleep(START_LISTENING_DELAY_SECONDS)
+        with self._state_lock:
+            if session_id != self._listen_session_id or self._state != State.READY:
+                return
 
         self._capture.start()
         with self._state_lock:
@@ -120,18 +131,21 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.LISTENING:
                 return
+            self._pause_since = time.time()
         self._capture.stop()
-        self._pause_since = time.time()
         self._set_state(State.PAUSED)
 
     def _cmd_stop(self) -> None:
         with self._state_lock:
             current = self._state
-        if current not in (State.OFF, State.LOADING):
-            self._capture.stop()
+            self._listen_session_id += 1
+            if current == State.OFF:
+                return
             self._pause_since = 0.0
             self._last_speech_time = 0.0
-            self._set_state(State.OFF)
+        self._capture.stop()
+        self._drain_transcribe_queue()
+        self._set_state(State.OFF)
 
     def _cmd_minimize(self) -> None:
         GLib.idle_add(self._do_minimize)
@@ -143,11 +157,10 @@ class BlabberApp:
         return False
 
     def _on_focus(self) -> None:
-        cfg = config.load()
-        if cfg.get("auto_start_on_click", False):
-            with self._state_lock:
-                if self._state in (State.OFF, State.PAUSED, State.IDLE):
-                    threading.Thread(target=self._start_listening, daemon=True).start()
+        with self._state_lock:
+            auto_start = self._cfg.get("auto_start_on_click", False)
+        if auto_start:
+            self._cmd_start()
 
     def _on_speech_chunk(self, audio_bytes: bytes) -> None:
         with self._state_lock:
@@ -174,7 +187,13 @@ class BlabberApp:
                 continue
             try:
                 text = self._stt.transcribe(audio_bytes)
-                if text and not self._transcribe_stop.is_set():
+                with self._state_lock:
+                    current_state = self._state
+                if (
+                    text
+                    and not self._transcribe_stop.is_set()
+                    and current_state not in (State.OFF, State.IDLE)
+                ):
                     display_server = self._cfg.get("display_server") or "auto"
                     type_text(text + " ", display_server=display_server)
             except Exception:
@@ -200,11 +219,9 @@ class BlabberApp:
     def _timeout_loop(self) -> None:
         while True:
             time.sleep(5)
-            cfg = config.load()
-            auto_pause_sec = cfg.get("auto_pause_seconds", 30)
-            idle_sec = cfg.get("idle_timeout_seconds", 60)
-
             with self._state_lock:
+                auto_pause_sec = self._cfg.get("auto_pause_seconds", 30)
+                idle_sec = self._cfg.get("idle_timeout_seconds", 60)
                 state = self._state
                 last_speech = self._last_speech_time
                 paused_since = self._pause_since
@@ -221,8 +238,8 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.LISTENING:
                 return False
+            self._pause_since = time.time()
         self._capture.stop()
-        self._pause_since = time.time()
         self._set_state(State.PAUSED)
         return False
 
@@ -230,9 +247,16 @@ class BlabberApp:
         with self._state_lock:
             if self._state != State.PAUSED:
                 return False
-        self._pause_since = 0.0
+            self._pause_since = 0.0
         self._set_state(State.IDLE)
         return False
+
+    def _drain_transcribe_queue(self) -> None:
+        while True:
+            try:
+                self._transcribe_queue.get_nowait()
+            except queue.Empty:
+                break
 
     def _open_settings(self) -> None:
         GLib.idle_add(self._do_open_settings)
@@ -266,17 +290,21 @@ class BlabberApp:
     def _quit(self) -> None:
         self._save_position()
         self._capture.stop()
+        with self._state_lock:
+            self._listen_session_id += 1
         self._transcribe_stop.set()
-        # Drain any queued chunks so the sentinel reaches the worker immediately
-        while not self._transcribe_queue.empty():
-            try:
-                self._transcribe_queue.get_nowait()
-            except queue.Empty:
-                break
+        self._drain_transcribe_queue()
         try:
             self._transcribe_queue.put_nowait(TRANSCRIBE_WORKER_STOP)
         except queue.Full:
-            logger.warning("Could not enqueue transcribe stop sentinel (queue full)")
+            logger.warning(
+                "Transcribe queue is full during shutdown; retrying after drain"
+            )
+            self._drain_transcribe_queue()
+            try:
+                self._transcribe_queue.put_nowait(TRANSCRIBE_WORKER_STOP)
+            except queue.Full:
+                logger.warning("Failed to enqueue transcribe stop sentinel")
         if self._transcribe_thread:
             self._transcribe_thread.join(
                 timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS

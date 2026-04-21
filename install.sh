@@ -125,7 +125,7 @@ WAYLAND_INSTALLED=false
 if apt_installed ydotool; then
     echo -e "    ${GREEN}✓${NC} already present: ydotool"
     WAYLAND_INSTALLED=true
-elif apt-cache show ydotool &>/dev/null 2>&1; then
+elif apt-cache show ydotool &>/dev/null; then
     echo -e "    ${YELLOW}↓${NC} installing: ydotool ..."
     if sudo apt-get install -y ydotool -qq >/dev/null 2>&1; then
         echo -e "    ${GREEN}✓${NC} installed: ydotool"
@@ -142,7 +142,7 @@ if [[ "$WAYLAND_INSTALLED" == "false" ]]; then
     for pkg in wtype wl-clipboard; do
         if apt_installed "$pkg"; then
             echo -e "    ${GREEN}✓${NC} already present: ${pkg}"
-        elif apt-cache show "$pkg" &>/dev/null 2>&1; then
+        elif apt-cache show "$pkg" &>/dev/null; then
             echo -e "    ${YELLOW}↓${NC} installing: ${pkg} ..."
             if sudo apt-get install -y "$pkg" -qq >/dev/null 2>&1; then
                 echo -e "    ${GREEN}✓${NC} installed: ${pkg}"
