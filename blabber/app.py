@@ -232,9 +232,10 @@ class BlabberApp:
     def _timeout_loop(self) -> None:
         while True:
             time.sleep(5)
+            cfg = self._cfg
+            auto_pause_sec = cfg.get("auto_pause_seconds", 30)
+            idle_sec = cfg.get("idle_timeout_seconds", 60)
             with self._state_lock:
-                auto_pause_sec = self._cfg.get("auto_pause_seconds", 30)
-                idle_sec = self._cfg.get("idle_timeout_seconds", 60)
                 state = self._state
                 last_speech = self._last_speech_time
                 paused_since = self._pause_since
