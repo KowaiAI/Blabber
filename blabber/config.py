@@ -7,8 +7,8 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULTS = {
     "model_size": "small",
     "auto_start_on_click": False,
-    "idle_timeout_seconds": 360,
-    "off_timeout_seconds": 1200,
+    "auto_pause_seconds": 30,
+    "idle_timeout_seconds": 60,
     "hotkey": "<shift>+b",
     "widget_x": 10,
     "widget_y": 10,

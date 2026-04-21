@@ -3,12 +3,6 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 from typing import Callable
 
-DOUBLE_CLICK_THRESHOLD_SECONDS = 0.4
-SINGLE_CLICK_BUFFER_SECONDS = 0.05
-SINGLE_CLICK_DELAY_MS = int(
-    (DOUBLE_CLICK_THRESHOLD_SECONDS + SINGLE_CLICK_BUFFER_SECONDS) * 1000
-)
-
 
 class BlabberWidget(Gtk.Window):
     """Floating control panel — top-left by default, draggable."""
@@ -17,17 +11,21 @@ class BlabberWidget(Gtk.Window):
         self,
         on_start: Callable,
         on_pause: Callable,
+        on_stop: Callable,
+        on_minimize: Callable,
         on_settings: Callable,
+        on_quit: Callable,
         x: int = 10,
         y: int = 10,
     ):
         super().__init__(type=Gtk.WindowType.POPUP)
         self._on_start = on_start
         self._on_pause = on_pause
+        self._on_stop = on_stop
+        self._on_minimize = on_minimize
         self._on_settings = on_settings
+        self._on_quit = on_quit
         self._drag_offset = (0, 0)
-        self._last_plus_time = 0.0
-        self._single_click_timer_id = 0
 
         self._build_ui()
         self.set_keep_above(True)
@@ -60,33 +58,53 @@ class BlabberWidget(Gtk.Window):
         }
         #status-dot {
             font-size: 11px;
-            padding: 2px 6px;
+            padding: 2px 3px 2px 6px;
             color: #888;
         }
-        #btn-plus {
+        #status-label {
+            font-size: 11px;
+            padding: 2px 6px 2px 2px;
+            color: #aaa;
+            min-width: 58px;
+        }
+        #status-label.off      { color: #666; }
+        #status-label.loading  { color: #999; }
+        #status-label.ready    { color: #4fc3a1; }
+        #status-label.listening { color: #ff4d4d; }
+        #status-label.paused   { color: #ffaa00; }
+        #status-label.idle     { color: #ff8c00; }
+        .ctrl-btn {
             background: rgba(255,255,255,0.08);
             border: none;
             border-radius: 4px;
             color: #eee;
-            font-size: 14px;
-            font-weight: bold;
-            min-width: 28px;
-            min-height: 28px;
+            font-size: 13px;
+            min-width: 26px;
+            min-height: 26px;
             padding: 0;
         }
-        #btn-plus:hover { background: rgba(255,255,255,0.18); }
-        #btn-plus.listening { color: #ff4d4d; }
-        #btn-plus.paused { color: #ffaa00; }
-        #btn-settings {
+        .ctrl-btn:hover { background: rgba(255,255,255,0.18); }
+        .ctrl-btn:disabled { color: #3a3a3a; background: transparent; }
+        #btn-minimize, #btn-settings {
             background: transparent;
             border: none;
             color: #888;
             font-size: 12px;
-            min-width: 24px;
-            min-height: 28px;
-            padding: 0 4px;
+            min-width: 22px;
+            min-height: 26px;
+            padding: 0 3px;
         }
-        #btn-settings:hover { color: #ccc; }
+        #btn-minimize:hover, #btn-settings:hover { color: #ccc; }
+        #btn-quit {
+            background: transparent;
+            border: none;
+            color: #888;
+            font-size: 12px;
+            min-width: 22px;
+            min-height: 26px;
+            padding: 0 3px;
+        }
+        #btn-quit:hover { color: #ff6666; }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
@@ -97,66 +115,107 @@ class BlabberWidget(Gtk.Window):
         )
 
     def _build_ui(self) -> None:
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-        box.set_margin_start(6)
-        box.set_margin_end(6)
-        box.set_margin_top(4)
-        box.set_margin_bottom(4)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.set_margin_start(6)
+        vbox.set_margin_end(6)
+        vbox.set_margin_top(4)
+        vbox.set_margin_bottom(4)
+
+        # ── Status row ────────────────────────────────────────────────
+        status_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
 
         self._status_dot = Gtk.Label(label="⚫")
         self._status_dot.set_name("status-dot")
-        box.pack_start(self._status_dot, False, False, 0)
+        status_box.pack_start(self._status_dot, False, False, 0)
+
+        self._status_label = Gtk.Label(label="Off")
+        self._status_label.set_name("status-label")
+        self._status_label.set_halign(Gtk.Align.START)
+        status_box.pack_start(self._status_label, True, True, 0)
+
+        vbox.pack_start(status_box, False, False, 0)
+
+        # ── Button row ────────────────────────────────────────────────
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+
+        self._btn_start = Gtk.Button(label="▶")
+        self._btn_start.set_name("btn-start")
+        self._btn_start.get_style_context().add_class("ctrl-btn")
+        self._btn_start.set_tooltip_text("Start")
+        self._btn_start.connect("clicked", lambda _: self._on_start())
+        btn_box.pack_start(self._btn_start, False, False, 0)
+
+        self._btn_pause = Gtk.Button(label="⏸")
+        self._btn_pause.set_name("btn-pause")
+        self._btn_pause.get_style_context().add_class("ctrl-btn")
+        self._btn_pause.set_tooltip_text("Pause")
+        self._btn_pause.connect("clicked", lambda _: self._on_pause())
+        btn_box.pack_start(self._btn_pause, False, False, 0)
+
+        self._btn_stop = Gtk.Button(label="⏹")
+        self._btn_stop.set_name("btn-stop")
+        self._btn_stop.get_style_context().add_class("ctrl-btn")
+        self._btn_stop.set_tooltip_text("Stop")
+        self._btn_stop.connect("clicked", lambda _: self._on_stop())
+        btn_box.pack_start(self._btn_stop, False, False, 0)
+
+        self._btn_minimize = Gtk.Button(label="—")
+        self._btn_minimize.set_name("btn-minimize")
+        self._btn_minimize.set_tooltip_text("Minimize")
+        self._btn_minimize.connect("clicked", lambda _: self._on_minimize())
+        btn_box.pack_start(self._btn_minimize, False, False, 0)
 
         self._btn_settings = Gtk.Button(label="⚙")
         self._btn_settings.set_name("btn-settings")
-        self._btn_settings.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_settings.set_tooltip_text("Settings")
         self._btn_settings.connect("clicked", lambda _: self._on_settings())
-        box.pack_start(self._btn_settings, False, False, 0)
+        btn_box.pack_start(self._btn_settings, False, False, 0)
 
-        self._btn_plus = Gtk.Button(label="+")
-        self._btn_plus.set_name("btn-plus")
-        self._btn_plus.set_relief(Gtk.ReliefStyle.NONE)
-        self._btn_plus.connect("clicked", self._handle_plus_click)
-        box.pack_start(self._btn_plus, False, False, 0)
+        self._btn_quit = Gtk.Button(label="✕")
+        self._btn_quit.set_name("btn-quit")
+        self._btn_quit.set_tooltip_text("Quit")
+        self._btn_quit.connect("clicked", lambda _: self._on_quit())
+        btn_box.pack_start(self._btn_quit, False, False, 0)
 
-        self.add(box)
-
-    def _handle_plus_click(self, _) -> None:
-        import time
-        now = time.time()
-        if now - self._last_plus_time < DOUBLE_CLICK_THRESHOLD_SECONDS:
-            if self._single_click_timer_id:
-                GLib.source_remove(self._single_click_timer_id)
-                self._single_click_timer_id = 0
-            self._on_pause()
-            self._last_plus_time = 0.0
-        else:
-            self._last_plus_time = now
-            self._single_click_timer_id = GLib.timeout_add(
-                SINGLE_CLICK_DELAY_MS, self._single_click_action
-            )
-
-    def _single_click_action(self) -> bool:
-        import time
-        self._single_click_timer_id = 0
-        if time.time() - self._last_plus_time >= DOUBLE_CLICK_THRESHOLD_SECONDS:
-            self._on_start()
-        return False
+        vbox.pack_start(btn_box, False, False, 2)
+        self.add(vbox)
 
     def set_state(self, state: str) -> None:
-        """state: 'off' | 'listening' | 'paused' | 'idle'"""
+        """state: 'off' | 'loading' | 'ready' | 'listening' | 'paused' | 'idle'"""
         GLib.idle_add(self._apply_state, state)
 
     def _apply_state(self, state: str) -> bool:
-        dots = {"off": "⚫", "listening": "🔴", "paused": "🟡", "idle": "🟠"}
+        dots = {
+            "off":       "⚫",
+            "loading":   "⏳",
+            "ready":     "🟢",
+            "listening": "🔴",
+            "paused":    "🟡",
+            "idle":      "🟠",
+        }
+        labels = {
+            "off":       "Off",
+            "loading":   "Loading…",
+            "ready":     "Ready",
+            "listening": "Listening",
+            "paused":    "Paused",
+            "idle":      "Idle",
+        }
         self._status_dot.set_text(dots.get(state, "⚫"))
-        ctx = self._btn_plus.get_style_context()
-        for cls in ("listening", "paused"):
+        self._status_label.set_text(labels.get(state, state.capitalize()))
+
+        ctx = self._status_label.get_style_context()
+        for cls in ("off", "loading", "ready", "listening", "paused", "idle"):
             ctx.remove_class(cls)
-        if state == "listening":
-            ctx.add_class("listening")
-        elif state == "paused":
-            ctx.add_class("paused")
+        ctx.add_class(state)
+
+        is_busy = state in ("loading", "ready")
+        is_listening = state == "listening"
+        is_stoppable = state in ("listening", "paused", "idle", "ready")
+
+        self._btn_start.set_sensitive(not is_listening and not is_busy)
+        self._btn_pause.set_sensitive(is_listening)
+        self._btn_stop.set_sensitive(is_stoppable)
         return False
 
     def _on_button_press(self, widget, event) -> None:
