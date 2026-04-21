@@ -49,6 +49,8 @@ class STTEngine:
             audio_array,
             language=None,
             beam_size=5,
-            vad_filter=True,
+            # AudioCapture already performs VAD segmentation. Running Whisper VAD
+            # again can over-filter short utterances and return empty text.
+            vad_filter=False,
         )
         return "".join(seg.text for seg in segments).strip()

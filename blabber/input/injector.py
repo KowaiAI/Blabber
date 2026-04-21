@@ -1,6 +1,10 @@
 import os
 import subprocess
 import shutil
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def _detect_display_server() -> str:
@@ -13,10 +17,13 @@ def _detect_display_server() -> str:
 
 
 def _inject_x11(text: str) -> None:
-    subprocess.run(
-        ["xdotool", "type", "--clearmodifiers", "--delay", "0", "--", text],
-        check=False,
-    )
+    if shutil.which("xdotool"):
+        subprocess.run(
+            ["xdotool", "type", "--clearmodifiers", "--delay", "0", "--", text],
+            check=False,
+        )
+        return
+    _inject_via_clipboard(text)
 
 
 def _inject_wayland(text: str) -> None:
@@ -25,6 +32,9 @@ def _inject_wayland(text: str) -> None:
     elif shutil.which("wtype"):
         subprocess.run(["wtype", "--", text], check=False)
     else:
+        logger.warning(
+            "Wayland session without ydotool/wtype; falling back to clipboard paste"
+        )
         _inject_via_clipboard(text)
 
 
@@ -44,6 +54,12 @@ def _inject_via_clipboard(text: str) -> None:
             proc.communicate(input=text.encode())
             subprocess.run(["wtype", "-M", "ctrl", "v", "-m", "ctrl"], check=False)
         else:
+            if not shutil.which("xclip"):
+                logger.warning(
+                    "No available text injection tool found. Install one of: "
+                    "xdotool, ydotool, wtype+wl-copy, or xclip."
+                )
+                return
             # X11 / XWayland path
             proc = subprocess.Popen(
                 ["xclip", "-selection", "clipboard"],
