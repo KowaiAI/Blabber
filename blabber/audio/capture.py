@@ -61,6 +61,11 @@ class AudioCapture:
                 continue
 
             if frame is None:
+                # Flush any buffered speech so the last utterance is not dropped
+                if speech_buffer:
+                    audio = b"".join(speech_buffer)
+                    self._on_speech_chunk(audio)
+                    speech_buffer = []
                 break
 
             try:
