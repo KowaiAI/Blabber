@@ -32,9 +32,8 @@ class FocusMonitor:
             self._running = False
 
         current_thread = threading.current_thread()
-        with self._lock:
-            atspi_thread = self._atspi_thread
-            self._atspi_thread = None
+        atspi_thread = self._atspi_thread
+
         if HAS_ATSPI and self._atspi_listener:
             try:
                 pyatspi.Registry.deregisterEventListener(
