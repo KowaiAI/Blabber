@@ -1,4 +1,3 @@
-import io
 import threading
 import numpy as np
 from faster_whisper import WhisperModel
