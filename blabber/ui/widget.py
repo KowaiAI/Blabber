@@ -18,7 +18,9 @@ class BlabberWidget(Gtk.Window):
         x: int = 10,
         y: int = 10,
     ):
-        super().__init__(type=Gtk.WindowType.POPUP)
+        # POPUP windows are unreliable on some compositors/desktop shells.
+        # Use an undecorated TOPLEVEL window for better production behavior.
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self._on_start = on_start
         self._on_pause = on_pause
         self._on_stop = on_stop
@@ -33,6 +35,7 @@ class BlabberWidget(Gtk.Window):
         self.set_resizable(False)
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
+        self.set_accept_focus(False)
         self.stick()
 
         screen = self.get_screen()
