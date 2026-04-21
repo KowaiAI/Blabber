@@ -18,6 +18,32 @@ Blabber listens to your microphone and types what you say directly into whatever
 
 ---
 
+## Project Structure
+
+```
+Blabber/
+├── main.py                        # Entry point
+├── install.sh                     # Interactive installer
+├── requirements.txt               # Python dependencies
+└── blabber/
+    ├── config.py                  # Persistent settings (~/.config/blabber/)
+    ├── app.py                     # Main controller — wires everything together
+    ├── audio/
+    │   └── capture.py             # Mic capture + VAD (webrtcvad)
+    ├── stt/
+    │   └── engine.py              # faster-whisper: load / unload / transcribe
+    ├── input/
+    │   ├── injector.py            # xdotool (X11) / ydotool / wtype (Wayland)
+    │   ├── focus_monitor.py       # AT-SPI focus events
+    │   └── hotkey.py              # Shift+B global hotkey (pynput)
+    └── ui/
+        ├── widget.py              # Floating GTK3 control panel
+        ├── tray.py                # AppIndicator3 tray icon
+        └── settings_dialog.py    # Settings dialog
+```
+
+---
+
 ## Requirements
 
 ### System packages
@@ -150,39 +176,9 @@ Config is saved to `~/.config/blabber/config.json`.
 
 ---
 
-## Project Structure
-
-```
-Blabber/
-├── main.py                        # Entry point
-├── install.sh                     # Interactive installer
-├── requirements.txt               # Python dependencies
-└── blabber/
-    ├── config.py                  # Persistent settings (~/.config/blabber/)
-    ├── app.py                     # Main controller — wires everything together
-    ├── audio/
-    │   └── capture.py             # Mic capture + VAD (webrtcvad)
-    ├── stt/
-    │   └── engine.py              # faster-whisper: load / unload / transcribe
-    ├── input/
-    │   ├── injector.py            # xdotool (X11) / ydotool / wtype (Wayland)
-    │   ├── focus_monitor.py       # AT-SPI focus events
-    │   └── hotkey.py              # Shift+B global hotkey (pynput)
-    └── ui/
-        ├── widget.py              # Floating GTK3 control panel
-        ├── tray.py                # AppIndicator3 tray icon
-        └── settings_dialog.py    # Settings dialog
-```
-
----
-
 ## License
 
 MIT — see [LICENSE](LICENSE)
-
-
-
-
 
 
 
