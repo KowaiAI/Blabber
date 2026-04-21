@@ -1,4 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Blabber — Python dependencies
+#
+# BEFORE running this file, install the required system packages:
+#
+#   sudo apt-get update
+#   sudo apt-get install -y \
+#       python3 python3-pip python3-dev \
+#       portaudio19-dev \
+#       libgirepository1.0-dev \
+#       gir1.2-gtk-3.0 \
+#       gir1.2-ayatanaappindicator3-0.1 \
+#       python3-pyatspi \
+#       xdotool xclip
+#
+# For Wayland systems, also install (optional — improves text injection):
+#
+#   sudo apt-get install -y ydotool   # or: wtype wl-clipboard
+#
+# Then install Python packages:
+#
+#   pip install -r requirements.txt
+#   # or, on systems with externally-managed Python (Ubuntu 23.04+):
+#   pip install --break-system-packages -r requirements.txt
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Speech-to-text engine (CTranslate2-accelerated Whisper)
 faster-whisper>=1.0.0
+
+# Audio capture (PortAudio wrapper — needs portaudio19-dev system package)
 sounddevice>=0.4.6
+
+# Voice activity detection — determines when the user is speaking
 webrtcvad-wheels>=2.0.14
+
+# Global hotkey listener (Shift+B show/hide)
 pynput>=1.7.6
+
+# Numerical audio processing (used directly in stt/engine.py)
+numpy>=1.24.0
