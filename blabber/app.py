@@ -159,7 +159,8 @@ class BlabberApp:
     def _on_focus(self) -> None:
         with self._state_lock:
             auto_start = self._cfg.get("auto_start_on_click", False)
-        if auto_start:
+            can_auto_start = self._state in (State.OFF, State.PAUSED, State.IDLE)
+        if auto_start and can_auto_start:
             self._cmd_start()
 
     def _on_speech_chunk(self, audio_bytes: bytes) -> None:
