@@ -40,7 +40,6 @@ echo -e "${BOLD}[2/4] Installing Python packages...${NC}"
 python3.12 -m pip install --break-system-packages --quiet \
     faster-whisper \
     sounddevice \
-    pyaudio \
     webrtcvad-wheels \
     pynput
 echo -e "${GREEN}  ✓ Python packages ready${NC}"
