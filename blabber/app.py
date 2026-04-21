@@ -1,3 +1,4 @@
+import logging
 import queue
 import threading
 import time
@@ -14,6 +15,10 @@ from blabber.input.hotkey import HotkeyListener
 from blabber.ui.widget import BlabberWidget
 from blabber.ui.tray import TrayIcon
 from blabber.ui.settings_dialog import SettingsDialog
+
+TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS = 2
+TRANSCRIBE_QUEUE_MAX_SIZE = 16
+logger = logging.getLogger(__name__)
 
 
 class State:
@@ -43,7 +48,7 @@ class BlabberApp:
         self._pause_since: float = 0.0
         self._timeout_thread: threading.Thread | None = None
         self._transcribe_thread: threading.Thread | None = None
-        self._transcribe_queue: queue.Queue = queue.Queue()
+        self._transcribe_queue: queue.Queue = queue.Queue(maxsize=TRANSCRIBE_QUEUE_MAX_SIZE)
         self._widget_visible = False
 
     def run(self) -> None:
@@ -117,7 +122,10 @@ class BlabberApp:
                     threading.Thread(target=self._start_listening, daemon=True).start()
 
     def _on_speech_chunk(self, audio_bytes: bytes) -> None:
-        self._transcribe_queue.put(audio_bytes)
+        try:
+            self._transcribe_queue.put_nowait(audio_bytes)
+        except queue.Full:
+            logger.warning("Dropping speech chunk because transcription queue is full")
 
     def _start_transcribe_worker(self) -> None:
         if self._transcribe_thread and self._transcribe_thread.is_alive():
@@ -132,10 +140,14 @@ class BlabberApp:
             audio_bytes = self._transcribe_queue.get()
             if audio_bytes is None:
                 break
-            text = self._stt.transcribe(audio_bytes)
-            if text:
-                display_server = config.get("display_server") or "auto"
-                type_text(text + " ", display_server=display_server)
+            try:
+                text = self._stt.transcribe(audio_bytes)
+                if text:
+                    display_server = config.get("display_server") or "auto"
+                    type_text(text + " ", display_server=display_server)
+            except Exception:
+                logger.exception("Failed to transcribe speech chunk")
+                continue
 
     def _handle_silence(self) -> None:
         pass
@@ -209,7 +221,9 @@ class BlabberApp:
         self._capture.stop()
         self._transcribe_queue.put(None)
         if self._transcribe_thread:
-            self._transcribe_thread.join(timeout=2)
+            self._transcribe_thread.join(
+                timeout=TRANSCRIBE_THREAD_SHUTDOWN_TIMEOUT_SECONDS
+            )
             self._transcribe_thread = None
         self._focus_monitor.stop()
         self._hotkey.stop()
